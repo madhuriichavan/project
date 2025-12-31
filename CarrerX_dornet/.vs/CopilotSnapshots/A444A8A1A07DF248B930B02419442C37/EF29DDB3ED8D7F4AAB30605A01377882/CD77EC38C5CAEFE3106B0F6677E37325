@@ -1,0 +1,21 @@
+﻿namespace CareerX_dotnet.Model;
+
+public class AssessmentSession
+{
+    public int Id { get; set; }
+    public int UserId { get; set; }
+    public string QuestionsJson { get; set; } = string.Empty;
+    public string? UserAnswersJson { get; set; } = string.Empty;
+    public string? CareerReportJson { get; set; } = string.Empty;
+    public bool IsCompleted { get; set; }
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+}
+
+public class McqQuestion
+{
+    public int Id { get; set; }
+    public string QuestionText { get; set; } = string.Empty;
+    public List<string> Options { get; set; } = new();
+    public int CorrectOptionIndex { get; set; }
+    public string Category { get; set; } = string.Empty;
+}

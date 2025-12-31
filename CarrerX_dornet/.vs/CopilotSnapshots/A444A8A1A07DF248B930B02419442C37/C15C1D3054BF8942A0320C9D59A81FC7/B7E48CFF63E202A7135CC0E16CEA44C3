@@ -1,0 +1,131 @@
+﻿using CareerX_dotnet.Data;
+using CareerX_dotnet.Model;
+using CareerX_dotnet.Model.Enums;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
+using System.Security.Claims;
+
+namespace CareerX_dotnet.Controllers;
+
+[Route("api/[controller]")]
+[ApiController]
+[Authorize(Roles = "Admin")]
+public class AdminController : ControllerBase
+{
+    private readonly ApplicationDbContext _context;
+
+    public AdminController(ApplicationDbContext context)
+    {
+        _context = context;
+    }
+
+    // GET: api/Admin/students (Get all students)
+    [HttpGet("students")]
+    public async Task<ActionResult<IEnumerable<object>>> GetAllStudents()
+    {
+        var students = await _context.Users
+            .Where(u => u.Role == UserRole.Student)
+            .Include(u => u.StudentProfiles)
+            .Select(u => new
+            {
+                userId = u.UserId,
+                name = u.Name,
+                email = u.Email,
+                age = u.Age,
+                location = u.Location,
+                profilePictureUrl = u.ProfilePictureUrl,
+                hasProfile = u.StudentProfiles.Any(),
+                createdAt = u.StudentProfiles
+                    .OrderByDescending(sp => sp.CreatedAt)
+                    .Select(sp => (DateTime?)sp.CreatedAt)
+                    .FirstOrDefault()
+            })
+            .ToListAsync();
+
+        return Ok(students);
+    }
+
+    // GET: api/Admin/students/{userId} (Get student details)
+    [HttpGet("students/{userId}")]
+    public async Task<ActionResult<object>> GetStudentDetails(int userId)
+    {
+        var student = await _context.Users
+            .Include(u => u.StudentProfiles)
+            .FirstOrDefaultAsync(u => u.UserId == userId && u.Role == UserRole.Student);
+
+        if (student == null)
+        {
+            return NotFound();
+        }
+
+        var assessments = await _context.StudentAssessments
+            .Include(sa => sa.Assessment)
+            .Where(sa => sa.StudentId == userId)
+            .Select(sa => new
+            {
+                studentAssessmentId = sa.StudentAssessmentId,
+                assessmentTitle = sa.Assessment.Title,
+                score = sa.Score,
+                isCompleted = sa.IsCompleted,
+                startedAt = sa.StartedAt,
+                completedAt = sa.CompletedAt
+            })
+            .ToListAsync();
+
+        var payments = await _context.Payments
+            .Where(p => p.StudentId == userId)
+            .Select(p => new
+            {
+                paymentId = p.PaymentId,
+                amount = p.Amount,
+                status = p.PaymentStatus,
+                createdAt = p.CreatedAt,
+                completedAt = p.CompletedAt
+            })
+            .ToListAsync();
+
+        return Ok(new
+        {
+            user = new
+            {
+                userId = student.UserId,
+                name = student.Name,
+                email = student.Email,
+                age = student.Age,
+                location = student.Location,
+                profilePictureUrl = student.ProfilePictureUrl
+            },
+            profile = student.StudentProfiles.FirstOrDefault(),
+            assessments = assessments,
+            payments = payments
+        });
+    }
+
+    // GET: api/Admin/stats (Get dashboard statistics)
+    [HttpGet("stats")]
+    public async Task<ActionResult<object>> GetStats()
+    {
+        var totalStudents = await _context.Users.CountAsync(u => u.Role == UserRole.Student);
+        var totalAssessments = await _context.Assessments.CountAsync();
+        var completedAssessments = await _context.StudentAssessments.CountAsync(sa => sa.IsCompleted);
+        var totalPayments = await _context.Payments.CountAsync(p => p.PaymentStatus == "Completed");
+        var totalRevenue = await _context.Payments
+            .Where(p => p.PaymentStatus == "Completed")
+            .SumAsync(p => p.Amount);
+        var totalBlogs = await _context.Blogs.CountAsync();
+        var totalCareers = await _context.ExploreCareers.CountAsync();
+
+        return Ok(new
+        {
+            totalStudents,
+            totalAssessments,
+            completedAssessments,
+            totalPayments,
+            totalRevenue,
+            totalBlogs,
+            totalCareers
+        });
+    }
+}
+

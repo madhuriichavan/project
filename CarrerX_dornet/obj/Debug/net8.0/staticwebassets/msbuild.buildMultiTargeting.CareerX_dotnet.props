@@ -1,0 +1,3 @@
+﻿<Project>
+  <Import Project="../build/CareerX_dotnet.props" />
+</Project>
