@@ -1,0 +1,6 @@
+@CareerX_dotnet_HostAddress = http://localhost:5086
+
+GET {{CareerX_dotnet_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
